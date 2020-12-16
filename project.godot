@@ -8,15 +8,25 @@
 
 config_version=4
 
-_global_script_classes=[  ]
+_global_script_classes=[ {
+"base": "Node",
+"class": "Constants",
+"language": "GDScript",
+"path": "res://constants.gd"
+} ]
 _global_script_class_icons={
-
+"Constants": ""
 }
 
 [application]
 
 config/name="platformer_1"
 run/main_scene="res://main.tscn"
+
+[debug]
+
+settings/stdout/print_fps=true
+settings/stdout/verbose_stdout=true
 
 [display]
 
