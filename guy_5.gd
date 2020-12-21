@@ -41,25 +41,31 @@ class State:
 
 	func _init(label: String = "unknown"): self.label = label
 	func label(): return label
-	func process_state_changes(guy: Guy): return StateChange.none()
+	func process_state_changes(guy: Guy, context: BaseContext): return StateChange.none()
 	func physics_process(delta: float, guy: Guy): pass
-	func on_enter(): pass
+	func on_enter(context: BaseContext): pass
 	func on_exit(): pass
 
 class Null extends State:
 	func _init().("null"): pass
 
+class BaseContext:
+	func to_string(): return ""
+
 class VerticalMovement extends State:
+	class Context extends BaseContext:
+		pass
+		
 	func _init(label: String = "unknown_vertical_state").(label): pass
-	
+
 	class Idle extends VerticalMovement:
 		func _init().("idle"): pass
-		
+
 		func physics_process(delta: float, guy: Guy):
 			guy.motion.y += Constants.GRAVITY_INC
 			guy.motion.y = clamp(guy.motion.y, -Constants.GRAVITY_MAX, Constants.GRAVITY_MAX)
 
-		func process_state_changes(guy: Guy):
+		func process_state_changes(guy: Guy, context: BaseContext):
 			if not guy.is_on_floor():
 				return StateChange.replace(State.Type.VerticalMovement_Coyote)
 			if guy.is_on_floor() and Input.is_action_just_pressed("ui_up"):
@@ -73,17 +79,22 @@ class VerticalMovement extends State:
 			guy.motion.y += Constants.GRAVITY_INC
 			guy.motion.y = clamp(guy.motion.y, -Constants.GRAVITY_MAX, Constants.GRAVITY_MAX)
 
-		func process_state_changes(guy: Guy):
-			# If we end up on the floor then transition to idle
+		func process_state_changes(guy: Guy, context: BaseContext):
+			# If we are on the floor, and the user presses the jump key at
+			# exactly the same frame as landing, then transition to jumping,
+			# otherwise transition to idle
 			if guy.is_on_floor():
-				return StateChange.replace(State.Type.VerticalMovement_Idle)
-			
-			# If we aren't on the floor yet and the user is trying to jump, then
-			# we may be just about to land and should honor the jump, we let
-			# the user buffer up a jump for a few frames in PreLandJump
+				if Input.is_action_just_pressed("ui_up"):
+					return StateChange.replace(State.Type.VerticalMovement_Jump)
+				else:
+					return StateChange.replace(State.Type.VerticalMovement_Idle)
+
+			# If the user is trying to jump we may be just about to land and
+			# should honor the jump, we let the user buffer up a jump for a few
+			# frames in PreLandJump
 			if not guy.is_on_floor() and Input.is_action_just_pressed("ui_up"):
 				return StateChange.replace(State.Type.VerticalMovement_PreLandJump)
-				
+
 			# If we are still moving upwards, and our momentum is below a
 			# threshold (Constants.HAND_TIME_VERTICAL_MOTION), and if the user
 			# is still holding up, then we transition to HangTime and give a
@@ -98,9 +109,9 @@ class VerticalMovement extends State:
 		
 		func _init().("pre_land_jump"): pass
 
-		func on_enter(): frames = 0
+		func on_enter(context: BaseContext): frames = 0
 
-		func process_state_changes(guy: Guy):
+		func process_state_changes(guy: Guy, context: BaseContext):
 			# Transition to falling if we have released the jump key, or if the
 			# player has been in the PreLandJump state for too long
 			if Input.is_action_just_released("ui_up"):
@@ -125,9 +136,9 @@ class VerticalMovement extends State:
 		
 		func _init().("coyote"): pass
 
-		func on_enter(): frames = 0
+		func on_enter(context: BaseContext): frames = 0
 		
-		func process_state_changes(guy: Guy):
+		func process_state_changes(guy: Guy, context: BaseContext):
 			# Transition to falling if the player has been in coyote state for
 			# too long
 			frames += 1
@@ -152,11 +163,11 @@ class VerticalMovement extends State:
 
 	class Jump extends VerticalMovement:
 		func _init().("jump"): pass
-
+		
 		func physics_process(delta: float, guy: Guy):
 			guy.motion.y = -Constants.JUMP
 			
-		func process_state_changes(guy: Guy):
+		func process_state_changes(guy: Guy, context: BaseContext):
 			# The jump's physics process has performed its duty, we can
 			# immediately transition to falling from here, we'll just be falling
 			# upwards temporarily
@@ -170,7 +181,7 @@ class VerticalMovement extends State:
 			guy.motion.y += Constants.GRAVITY_INC_HANG_TIME
 			guy.motion.y = clamp(guy.motion.y, -Constants.GRAVITY_MAX, Constants.GRAVITY_MAX)
 
-		func process_state_changes(guy: Guy):
+		func process_state_changes(guy: Guy, context: BaseContext):
 			# Hangtime halves the effect of gravity whilst the player is at the
 			# apex of their jump, still moving upwards and while they have the
 			# jump key pressed
@@ -189,20 +200,27 @@ class VerticalMovement extends State:
 			return StateChange.none()
 
 class HorizontalMovement extends State:
+	class Context extends BaseContext:
+		pass
+	
 	func _init(label: String = "unknown_horizontal_state").(label): pass
 	
 	class Idle extends HorizontalMovement:
 		func _init().("idle"): pass
 
 		func physics_process(delta: float, guy: Guy):
+			# Bring the player to a stop if they are moving, also bring them
+			# to a slower stop if they are in the air
 			if guy.motion.x > 0.0:
-				guy.motion.x -= Constants.SPEED_DEC
+				if guy.is_on_floor(): guy.motion.x -= Constants.SPEED_DEC
+				else: guy.motion.x -= Constants.AIR_SPEED_DEC
 				if guy.motion.x < 0.0: guy.motion.x = 0.0
 			elif guy.motion.x < 0.0:
-				guy.motion.x += Constants.SPEED_DEC
+				if guy.is_on_floor(): guy.motion.x += Constants.SPEED_DEC
+				else: guy.motion.x += Constants.AIR_SPEED_DEC
 				if guy.motion.x > 0.0: guy.motion.x = 0.0
 
-		func process_state_changes(guy: Guy):
+		func process_state_changes(guy: Guy, context: BaseContext):
 			if Input.is_action_just_pressed("ui_left"):
 				return StateChange.replace(State.Type.HorizontalMovement_Left)
 			elif Input.is_action_just_pressed("ui_right"):
@@ -213,9 +231,8 @@ class HorizontalMovement extends State:
 		func _init().("left"): pass
 		
 		func physics_process(delta: float, guy: Guy):
-			# If we're currently moving right, give a little bump to the
-			# speed that we stop moving in that direction to make the player
-			# feel less slidy
+			# If we're currently moving in the opposite direction, give a little
+			# bump to how quickly we stop, this makes the player seem less slidy
 			if guy.motion.x > 0.0:
 				if guy.is_on_floor():
 					guy.motion.x -= Constants.SPEED_DEC
@@ -228,7 +245,7 @@ class HorizontalMovement extends State:
 				guy.motion.x -= Constants.AIR_SPEED_INC
 			guy.motion.x = clamp(guy.motion.x, -Constants.SPEED_MAX, Constants.SPEED_MAX)
 
-		func process_state_changes(guy: Guy):
+		func process_state_changes(guy: Guy, context: BaseContext):
 			if Input.is_action_just_released("ui_left"):
 				if Input.is_action_pressed("ui_right"):
 					return StateChange.replace(State.Type.HorizontalMovement_Right)
@@ -239,9 +256,8 @@ class HorizontalMovement extends State:
 		func _init().("right"): pass
 
 		func physics_process(delta: float, guy: Guy):
-			# If we're currently moving left, give a little bump to the
-			# speed that we stop moving in that direction to make the player
-			# feel less slidy
+			# If we're currently moving in the opposite direction, give a little
+			# bump to how quickly we stop, this makes the player seem less slidy
 			if guy.motion.x < 0.0:
 				if guy.is_on_floor():
 					guy.motion.x += Constants.SPEED_DEC
@@ -254,7 +270,7 @@ class HorizontalMovement extends State:
 				guy.motion.x += Constants.AIR_SPEED_INC
 			guy.motion.x = clamp(guy.motion.x, -Constants.SPEED_MAX, Constants.SPEED_MAX)
 
-		func process_state_changes(guy: Guy):
+		func process_state_changes(guy: Guy, context: BaseContext):
 			if Input.is_action_just_released("ui_right"):
 				if Input.is_action_pressed("ui_left"):
 					return StateChange.replace(State.Type.HorizontalMovement_Left)
@@ -262,17 +278,19 @@ class HorizontalMovement extends State:
 			return StateChange.none()
 
 class StateGraph:
-	var state = Null.new()
+	var state: State = Null.new()
 	var label: String
-	
-	func _init(guy: Guy, initial_state, label: String):
+	var context: BaseContext
+
+	func _init(guy: Guy, initial_state, initial_context: BaseContext, label: String):
 		self.label = label
+		self.context = initial_context
 		replace_state(guy, initial_state)
 	
-	func label(): return "%s (%s)" % [label, state.label()]
+	func label(): return "%s (%s) (%s)" % [label, state.label(), context.to_string()]
 	
 	func physics_process(delta: float, guy: Guy):
-		var state_change = state.process_state_changes(guy)
+		var state_change = state.process_state_changes(guy, context)
 		handle_state_change(guy, state_change)
 		state.physics_process(delta, guy)
 
@@ -287,17 +305,17 @@ class StateGraph:
 		print("%s change state from %s to %s" % [label, state.label(), new_state.label()])
 		state.on_exit()
 		state = new_state
-		new_state.on_enter()
+		new_state.on_enter(context)
 
 class VerticalMovementGraph extends StateGraph:
-	func _init(guy: Guy).(guy, State.Type.VerticalMovement_Idle, "vertical_movement"): pass
+	func _init(guy: Guy).(guy, State.Type.VerticalMovement_Idle, VerticalMovement.Context.new(), "vertical_movement"): pass
 
 class HorizontalMovementGraph extends StateGraph:
-	func _init(guy: Guy).(guy, State.Type.HorizontalMovement_Idle, "horizontal_movement"): pass
+	func _init(guy: Guy).(guy, State.Type.HorizontalMovement_Idle, HorizontalMovement.Context.new(), "horizontal_movement"): pass
 
 var motion := Vector2.ZERO
 
-var state_graphs = []
+onready var state_graphs = []
 
 onready var state_by_type: Dictionary = {
 	State.Type.Null: Null.new(),
@@ -335,21 +353,28 @@ class Average:
 		for i in range(min(num, capacity)): s += points[i]
 		return s
 
-var frame_times = Average.new(10)
+var frame_times = Average.new(30)
+
+var debug = false
 
 func _physics_process(delta: float):
 	var t = OS.get_ticks_usec()
-
 	for state_graph in state_graphs:
 		state_graph.physics_process(delta, self)
+	frame_times.push(OS.get_ticks_usec() - t)
+
 	motion = move_and_slide(motion, Vector2.UP)
 
-	var process_time = OS.get_ticks_usec() - t
-	frame_times.push(process_time)
+	if Input.is_action_just_pressed("ui_end"):
+		debug = !debug
+	if debug:
+		$Label.show()
 
-	var text = ""
-	text += "update time average (%sus)\n" % frame_times.average()
-	for state_graph in state_graphs:
-		text += "%s\n" % state_graph.label()
-	text += "motion %s" % str(motion)
-	$Label.set_text(text)
+		var text = ""
+		text += "FSM update (%sus)\n" % int(frame_times.average())
+		for state_graph in state_graphs:
+			text += "%s\n" % state_graph.label()
+		text += "motion %s" % str(motion)
+		$Label.set_text(text)
+	else:
+		$Label.hide()

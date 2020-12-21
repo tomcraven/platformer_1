@@ -20,5 +20,6 @@ const STOP_INC := 40.0
 const AIR_STOP_INC := 10.0
 
 const JUMP := 330.0
+const DOUBLE_JUMP := JUMP
 const PRE_LAND_JUMP_FRAMES := 5
 const COYOTE_FRAMES := 5
