@@ -13,9 +13,15 @@ _global_script_classes=[ {
 "class": "Constants",
 "language": "GDScript",
 "path": "res://constants.gd"
+}, {
+"base": "KinematicBody2D",
+"class": "Guy",
+"language": "GDScript",
+"path": "res://guy_5.gd"
 } ]
 _global_script_class_icons={
-"Constants": ""
+"Constants": "",
+"Guy": ""
 }
 
 [application]
