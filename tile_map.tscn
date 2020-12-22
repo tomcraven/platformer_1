@@ -7,14 +7,16 @@
 [sub_resource type="Shader" id=1]
 code = "shader_type canvas_item;
 
+// hacky af but temporary
+
 uniform vec2 player_position = vec2(0, 0);
 
-uniform float active_distance_1 = 100.0;
+uniform float active_distance_1 = 80.0;
 uniform float active_distance_2 = 60.0;
 uniform float active_distance_3 = 40.0;
 uniform float active_distance_4 = 25.0;
 uniform float active_distance_5 = 5.0;
-uniform float fade_distance = 30.0;
+uniform float fade_distance = 50.0;
 
 varying vec2 world_pos;
 
@@ -71,12 +73,12 @@ void fragment() {
 [sub_resource type="ShaderMaterial" id=2]
 shader = SubResource( 1 )
 shader_param/player_position = Vector2( 0, 0 )
-shader_param/active_distance_1 = 100.0
+shader_param/active_distance_1 = 80.0
 shader_param/active_distance_2 = 60.0
 shader_param/active_distance_3 = 40.0
 shader_param/active_distance_4 = 25.0
 shader_param/active_distance_5 = 5.0
-shader_param/fade_distance = 30.0
+shader_param/fade_distance = 50.0
 
 [sub_resource type="ConvexPolygonShape2D" id=3]
 points = PoolVector2Array( 0, 0, 16, 0, 16, 16, 0, 16 )
