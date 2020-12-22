@@ -19,11 +19,11 @@ texture = SubResource( 1 )
 
 [node name="right_ray" type="RayCast2D" parent="."]
 enabled = true
-cast_to = Vector2( 9, 0 )
+cast_to = Vector2( 7, 0 )
 
 [node name="left_ray" type="RayCast2D" parent="."]
 enabled = true
-cast_to = Vector2( -9, 0 )
+cast_to = Vector2( -7, 0 )
 
 [node name="Label" type="Label" parent="."]
 margin_left = -20.0

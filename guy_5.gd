@@ -31,6 +31,9 @@ class State:
 		VerticalMovement_PreLandJump,
 		VerticalMovement_Coyote,
 		VerticalMovement_HangTime,
+		VerticalMovement_WallSlide,
+		VerticalMovement_WallJump,
+		VerticalMovement_WallCoyote,
 		
 		HorizontalMovement_Idle,
 		HorizontalMovement_Left,
@@ -102,6 +105,11 @@ class VerticalMovement extends State:
 			# upwards
 			if guy.motion.y < 0 and guy.motion.y > -Constants.HAND_TIME_VERTICAL_MOTION and Input.is_action_pressed("ui_up"):
 				return StateChange.replace(State.Type.VerticalMovement_HangTime)
+				
+			# If we collide with a wall, then cling to it
+			if guy.is_on_wall():
+				return StateChange.replace(State.Type.VerticalMovement_WallSlide)
+				
 			return StateChange.none()
 
 	class PreLandJump extends VerticalMovement.Fall:
@@ -133,8 +141,10 @@ class VerticalMovement extends State:
 	
 	class Coyote extends VerticalMovement.Fall:
 		var frames = 0
+		var jump_state_type
 		
-		func _init().("coyote"): pass
+		func _init(jump_state_type, label: String).(label):
+			self.jump_state_type = jump_state_type
 
 		func on_enter(context: BaseContext): frames = 0
 		
@@ -157,10 +167,16 @@ class VerticalMovement extends State:
 			# This is the coyote feature, the user has just left a ledge and
 			# have mis-timed their jump, but let them jump anyway
 			if Input.is_action_just_pressed("ui_up"):
-				return StateChange.replace(State.Type.VerticalMovement_Jump)
+				return StateChange.replace(jump_state_type)
 			
 			return StateChange.none()
 
+		class Default extends Coyote:
+			func _init().(State.Type.VerticalMovement_Jump, "coyote"): pass
+			
+		class Wall extends Coyote:
+			func _init().(State.Type.VerticalMovement_WallJump, "wall_coyote"): pass
+			
 	class Jump extends VerticalMovement:
 		func _init().("jump"): pass
 		
@@ -175,7 +191,7 @@ class VerticalMovement extends State:
 			return StateChange.replace(State.Type.VerticalMovement_Fall)
 
 	class HangTime extends VerticalMovement:
-		func _init(label: String = "hang_time").(label): pass
+		func _init().("hang_time"): pass
 		
 		func physics_process(delta: float, guy: Guy):
 			guy.motion.y += Constants.GRAVITY_INC_HANG_TIME
@@ -198,11 +214,90 @@ class VerticalMovement extends State:
 			if transition_to_falling:
 				return StateChange.replace(State.Type.VerticalMovement_Fall)
 			return StateChange.none()
+			
+	class WallSlide extends VerticalMovement:
+		var frames = 0
+		var left_ray: RayCast2D
+		var right_ray: RayCast2D
+		
+		func _init(left_ray: RayCast2D, right_ray: RayCast2D).("wall_slide"):
+			self.left_ray = left_ray
+			self.right_ray = right_ray
+		
+		func on_enter(context: BaseContext): frames = 0
+		
+		func physics_process(delta: float, guy: Guy):
+			# sliding on a wall is slow, but only slow when moving downwards,
+			# when the player is still moving up we just apply normal gravity
+			if guy.motion.y > 0:
+				guy.motion.y += Constants.WALL_SLIDE_INC
+				guy.motion.y = clamp(guy.motion.y, -Constants.WALL_SLIDE_MAX, Constants.WALL_SLIDE_MAX)
+			else:
+				guy.motion.y += Constants.GRAVITY_INC
+				guy.motion.y = clamp(guy.motion.y, -Constants.GRAVITY_MAX, Constants.GRAVITY_MAX)
+				
+		func process_state_changes(guy: Guy, context: BaseContext):
+			# if we've wall slid all the way to the bottom of a wall, then move
+			# back to idle
+			if guy.is_on_floor():
+				return StateChange.replace(State.Type.VerticalMovement_Idle)
+			
+			# if we move away from the wall then transition to wall coyote, the
+			# player may still want to wall jump so give some grace period
+			if not right_ray.is_colliding() and not left_ray.is_colliding():
+				return StateChange.replace(State.Type.VerticalMovement_WallCoyote)
+			
+			# guy.is_on_wall will return true when the player is moving towards
+			# a wall, if the player stops moving towards the wall they're clung
+			# to, then after Constants.WALL_SLIDE_FRAMES number of frames
+			# transition to fall
+			if not guy.is_on_wall():
+				frames += 1
+				if frames > Constants.WALL_SLIDE_FRAMES:
+					return StateChange.replace(State.Type.VerticalMovement_Fall)
+			else:
+				frames = 0
+			
+			# if user pressed down, then transfer to falling
+			if Input.is_action_just_pressed("ui_down"):
+				return StateChange.replace(State.Type.VerticalMovement_Fall)
+			
+			# if a user presses the direction away from the wall, then
+			# transition to coyote
+			if Input.is_action_just_pressed("ui_left") and right_ray.is_colliding():
+				return StateChange.replace(State.Type.VerticalMovement_WallCoyote)
+			elif Input.is_action_just_pressed("ui_right") and left_ray.is_colliding():
+				return StateChange.replace(State.Type.VerticalMovement_WallCoyote)
+			
+			# if the user presses up, then wall jump!
+			if Input.is_action_just_pressed("ui_up"):
+				return StateChange.replace(State.Type.VerticalMovement_WallJump)
+			
+			return StateChange.none()
+
+	class WallJump extends VerticalMovement:
+		var left_ray: RayCast2D
+		var right_ray: RayCast2D
+		
+		func _init(left_ray: RayCast2D, right_ray: RayCast2D).("wall_jump"):
+			self.left_ray = left_ray
+			self.right_ray = right_ray
+		
+		func physics_process(delta: float, guy: Guy):
+			# wall jump sends the player upwards and sideways in the opposite
+			# direction to the wall they're hanging off
+			guy.motion.y = -Constants.WALL_JUMP_VERTICAL
+			if right_ray.is_colliding(): guy.motion.x = -Constants.WALL_JUMP_HORIZONTAL
+			elif left_ray.is_colliding(): guy.motion.x = Constants.WALL_JUMP_HORIZONTAL
+
+		func process_state_changes(guy: Guy, context: BaseContext):
+			# immediately transition to falling
+			return StateChange.replace(State.Type.VerticalMovement_Fall)
 
 class HorizontalMovement extends State:
 	class Context extends BaseContext:
 		pass
-	
+
 	func _init(label: String = "unknown_horizontal_state").(label): pass
 	
 	class Idle extends HorizontalMovement:
@@ -315,7 +410,7 @@ class HorizontalMovementGraph extends StateGraph:
 
 var motion := Vector2.ZERO
 
-onready var state_graphs = []
+var state_graphs = []
 
 onready var state_by_type: Dictionary = {
 	State.Type.Null: Null.new(),
@@ -324,8 +419,11 @@ onready var state_by_type: Dictionary = {
 	State.Type.VerticalMovement_Fall: VerticalMovement.Fall.new(),
 	State.Type.VerticalMovement_Jump: VerticalMovement.Jump.new(),
 	State.Type.VerticalMovement_PreLandJump: VerticalMovement.PreLandJump.new(),
-	State.Type.VerticalMovement_Coyote: VerticalMovement.Coyote.new(),
+	State.Type.VerticalMovement_Coyote: VerticalMovement.Coyote.Default.new(),
 	State.Type.VerticalMovement_HangTime: VerticalMovement.HangTime.new(),
+	State.Type.VerticalMovement_WallSlide: VerticalMovement.WallSlide.new($left_ray, $right_ray),
+	State.Type.VerticalMovement_WallJump: VerticalMovement.WallJump.new($left_ray, $right_ray),
+	State.Type.VerticalMovement_WallCoyote: VerticalMovement.Coyote.Wall.new(),
 	
 	State.Type.HorizontalMovement_Idle: HorizontalMovement.Idle.new(),
 	State.Type.HorizontalMovement_Left: HorizontalMovement.Left.new(),
