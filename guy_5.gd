@@ -76,13 +76,21 @@ class VerticalMovement extends State:
 			return StateChange.none()
 
 	class Fall extends VerticalMovement:
-		func _init(label: String = "fall").(label): pass
+		var left_ray: RayCast2D
+		var right_ray: RayCast2D
+		
+		func _init(left_ray: RayCast2D, right_ray: RayCast2D, label: String = "fall").(label):
+			self.left_ray = left_ray
+			self.right_ray = right_ray
 		
 		func physics_process(delta: float, guy: Guy):
 			guy.motion.y += Constants.GRAVITY_INC
 			guy.motion.y = clamp(guy.motion.y, -Constants.GRAVITY_MAX, Constants.GRAVITY_MAX)
 
 		func process_state_changes(guy: Guy, context: BaseContext):
+			if Input.is_action_just_pressed("ui_up") and (right_ray.is_colliding() or left_ray.is_colliding()):
+				return StateChange.replace(State.Type.VerticalMovement_WallJump)
+
 			# If we are on the floor, and the user presses the jump key at
 			# exactly the same frame as landing, then transition to jumping,
 			# otherwise transition to idle
@@ -115,7 +123,7 @@ class VerticalMovement extends State:
 	class PreLandJump extends VerticalMovement.Fall:
 		var frames = 0
 		
-		func _init().("pre_land_jump"): pass
+		func _init(left_ray: RayCast2D, right_ray: RayCast2D).(left_ray, right_ray, "pre_land_jump"): pass
 
 		func on_enter(context: BaseContext): frames = 0
 
@@ -143,7 +151,7 @@ class VerticalMovement extends State:
 		var frames = 0
 		var jump_state_type
 		
-		func _init(jump_state_type, label: String).(label):
+		func _init(left_ray: RayCast2D, right_ray: RayCast2D, jump_state_type, label: String).(left_ray, right_ray, label):
 			self.jump_state_type = jump_state_type
 
 		func on_enter(context: BaseContext): frames = 0
@@ -172,10 +180,12 @@ class VerticalMovement extends State:
 			return StateChange.none()
 
 		class Default extends Coyote:
-			func _init().(State.Type.VerticalMovement_Jump, "coyote"): pass
+			func _init(left_ray: RayCast2D, right_ray: RayCast2D) \
+				.(left_ray, right_ray, State.Type.VerticalMovement_Jump, "coyote"): pass
 			
 		class Wall extends Coyote:
-			func _init().(State.Type.VerticalMovement_WallJump, "wall_coyote"): pass
+			func _init(left_ray: RayCast2D, right_ray: RayCast2D) \
+				.(left_ray, right_ray, State.Type.VerticalMovement_WallJump, "wall_coyote"): pass
 			
 	class Jump extends VerticalMovement:
 		func _init().("jump"): pass
@@ -262,16 +272,16 @@ class VerticalMovement extends State:
 			if Input.is_action_just_pressed("ui_down"):
 				return StateChange.replace(State.Type.VerticalMovement_Fall)
 			
+			# if the user presses up, then wall jump!
+			if Input.is_action_just_pressed("ui_up"):
+				return StateChange.replace(State.Type.VerticalMovement_WallJump)
+			
 			# if a user presses the direction away from the wall, then
 			# transition to coyote
 			if Input.is_action_just_pressed("ui_left") and right_ray.is_colliding():
 				return StateChange.replace(State.Type.VerticalMovement_WallCoyote)
 			elif Input.is_action_just_pressed("ui_right") and left_ray.is_colliding():
 				return StateChange.replace(State.Type.VerticalMovement_WallCoyote)
-			
-			# if the user presses up, then wall jump!
-			if Input.is_action_just_pressed("ui_up"):
-				return StateChange.replace(State.Type.VerticalMovement_WallJump)
 			
 			return StateChange.none()
 
@@ -416,14 +426,14 @@ onready var state_by_type: Dictionary = {
 	State.Type.Null: Null.new(),
 	
 	State.Type.VerticalMovement_Idle: VerticalMovement.Idle.new(),
-	State.Type.VerticalMovement_Fall: VerticalMovement.Fall.new(),
+	State.Type.VerticalMovement_Fall: VerticalMovement.Fall.new($left_ray, $right_ray),
 	State.Type.VerticalMovement_Jump: VerticalMovement.Jump.new(),
-	State.Type.VerticalMovement_PreLandJump: VerticalMovement.PreLandJump.new(),
-	State.Type.VerticalMovement_Coyote: VerticalMovement.Coyote.Default.new(),
+	State.Type.VerticalMovement_PreLandJump: VerticalMovement.PreLandJump.new($left_ray, $right_ray),
+	State.Type.VerticalMovement_Coyote: VerticalMovement.Coyote.Default.new($left_ray, $right_ray),
 	State.Type.VerticalMovement_HangTime: VerticalMovement.HangTime.new(),
 	State.Type.VerticalMovement_WallSlide: VerticalMovement.WallSlide.new($left_ray, $right_ray),
 	State.Type.VerticalMovement_WallJump: VerticalMovement.WallJump.new($left_ray, $right_ray),
-	State.Type.VerticalMovement_WallCoyote: VerticalMovement.Coyote.Wall.new(),
+	State.Type.VerticalMovement_WallCoyote: VerticalMovement.Coyote.Wall.new($left_ray, $right_ray),
 	
 	State.Type.HorizontalMovement_Idle: HorizontalMovement.Idle.new(),
 	State.Type.HorizontalMovement_Left: HorizontalMovement.Left.new(),

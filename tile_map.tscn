@@ -7,27 +7,58 @@
 [sub_resource type="Shader" id=1]
 code = "shader_type canvas_item;
 
-// hacky af but temporary
-
 uniform vec2 player_position = vec2(0, 0);
 
-uniform float active_distance_1 = 80.0;
-uniform float active_distance_2 = 60.0;
-uniform float active_distance_3 = 40.0;
-uniform float active_distance_4 = 25.0;
-uniform float active_distance_5 = 5.0;
-uniform float fade_distance = 50.0;
+float plot(vec2 st, float pct){
+  return smoothstep( pct-1.0, pct, st.y) -
+          smoothstep( pct, pct+1.0, st.y);
+}
+
+float random(in float x) {
+    return fract(sin(x)*1e4);
+}
+
+float noise(in float x) {
+    float i = floor(x);
+    float f = fract(x);
+	
+    // Cubic Hermine Curve
+    float u = f * f * (3.0 - 2.0 * f);
+    return mix(random(i), random(i + 1.0), u);
+}
 
 varying vec2 world_pos;
-
 void vertex() {
     world_pos = (WORLD_MATRIX * vec4(VERTEX, 1.0, 1.0)).xy;
 }
 
 void fragment() {
+    vec2 st = FRAGCOORD.xy/(1.0/SCREEN_PIXEL_SIZE).xy;
+    st.x *= (1.0/SCREEN_PIXEL_SIZE).x/(1.0/SCREEN_PIXEL_SIZE).y;
+
+    float y1 = noise(st.x*10.+sin(TIME));
+    float pct = plot(st,y1);
+    vec3 color = pct*vec3(0.0,1.0,0.0);
+	
+    float y2 = noise(st.y*10.+cos(TIME));
+    float pct2 = plot(st,y2);
+    vec3 color2 = pct2*vec3(0.0,1.0,0.0);
+	
+	float strength = pct * pct2;
+	
+
+
+
+	float active_distance_1 = 80.0 + strength * 10.0;
+	float active_distance_2 = 60.0 + strength * 10.0;
+	float active_distance_3 = 40.0 + strength * 10.0;
+	float active_distance_4 = 25.0 + strength * 10.0;
+	float active_distance_5 = 5.0 + strength * 10.0;
+	float fade_distance = 50.0 + strength * 2.0;
+
     float distance_to_player = distance(world_pos, player_position);
 	vec4 col = texture(TEXTURE, UV);
-	
+
     if (distance_to_player > active_distance_1) {
 		if (distance_to_player > active_distance_1 + fade_distance) {
         	COLOR = vec4(0, 0, 0, 0);
@@ -39,7 +70,7 @@ void fragment() {
 	        	COLOR = col;
 			}
 		}
-		
+
 	} else if (distance_to_player > active_distance_2) {
 		if (col == vec4(1, 1, 1, 1)) {
         	COLOR = vec4(66.0 / 255.0, 20.0 / 255.0, 11.0 / 255.0, 1);
@@ -65,20 +96,13 @@ void fragment() {
         	COLOR = col;
 		}
     } else {
-        COLOR = vec4(0, 0, 0, 0);
+        	COLOR = col;
     }
-}
-"
+}"
 
 [sub_resource type="ShaderMaterial" id=2]
 shader = SubResource( 1 )
 shader_param/player_position = Vector2( 0, 0 )
-shader_param/active_distance_1 = 80.0
-shader_param/active_distance_2 = 60.0
-shader_param/active_distance_3 = 40.0
-shader_param/active_distance_4 = 25.0
-shader_param/active_distance_5 = 5.0
-shader_param/fade_distance = 50.0
 
 [sub_resource type="ConvexPolygonShape2D" id=3]
 points = PoolVector2Array( 0, 0, 16, 0, 16, 16, 0, 16 )
