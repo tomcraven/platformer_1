@@ -36,68 +36,73 @@ void fragment() {
     vec2 st = FRAGCOORD.xy/(1.0/SCREEN_PIXEL_SIZE).xy;
     st.x *= (1.0/SCREEN_PIXEL_SIZE).x/(1.0/SCREEN_PIXEL_SIZE).y;
 
-    float y1 = noise(st.x*10.+sin(TIME));
+	float factor1 = 10.0;
+	float factor2 = 0.0;
+	float factor3 = 1.0;
+    float y1 = noise(st.x*factor1+sin(TIME)*factor3+TIME*factor2);
     float pct = plot(st,y1);
     vec3 color = pct*vec3(0.0,1.0,0.0);
 	
-    float y2 = noise(st.y*10.+cos(TIME));
+    float y2 = noise(st.y*factor1+cos(TIME)*factor3+TIME*factor2);
     float pct2 = plot(st,y2);
     vec3 color2 = pct2*vec3(0.0,1.0,0.0);
 	
 	float strength = pct * pct2;
 	
+	COLOR = vec4(strength, strength, strength, 1.0);
 
 
+	if (true) {
+		float active_distance_1 = 80.0 + strength * 10.0;
+		float active_distance_2 = 60.0 + strength * 10.0;
+		float active_distance_3 = 40.0 + strength * 10.0;
+		float active_distance_4 = 25.0 + strength * 10.0;
+		float active_distance_5 = 5.0 + strength * 10.0;
+		float fade_distance = 50.0 + strength * 2.0;
 
-	float active_distance_1 = 80.0 + strength * 10.0;
-	float active_distance_2 = 60.0 + strength * 10.0;
-	float active_distance_3 = 40.0 + strength * 10.0;
-	float active_distance_4 = 25.0 + strength * 10.0;
-	float active_distance_5 = 5.0 + strength * 10.0;
-	float fade_distance = 50.0 + strength * 2.0;
+	    float distance_to_player = distance(world_pos, player_position);
+		vec4 col = texture(TEXTURE, UV);
 
-    float distance_to_player = distance(world_pos, player_position);
-	vec4 col = texture(TEXTURE, UV);
+	    if (distance_to_player > active_distance_1) {
+			if (distance_to_player > active_distance_1 + fade_distance) {
+	        	COLOR = vec4(0, 0, 0, 0);
+			} else {
+				if (col == vec4(1, 1, 1, 1)) {
+					float alpha = 1.0 - ((distance_to_player - active_distance_1) / fade_distance);
+		        	COLOR = vec4(66.0 / 255.0, 20.0 / 255.0, 11.0 / 255.0, alpha);
+				} else {
+		        	COLOR = col;
+				}
+			}
 
-    if (distance_to_player > active_distance_1) {
-		if (distance_to_player > active_distance_1 + fade_distance) {
-        	COLOR = vec4(0, 0, 0, 0);
-		} else {
+		} else if (distance_to_player > active_distance_2) {
 			if (col == vec4(1, 1, 1, 1)) {
-				float alpha = 1.0 - ((distance_to_player - active_distance_1) / fade_distance);
-	        	COLOR = vec4(66.0 / 255.0, 20.0 / 255.0, 11.0 / 255.0, alpha);
+	        	COLOR = vec4(66.0 / 255.0, 20.0 / 255.0, 11.0 / 255.0, 1);
 			} else {
 	        	COLOR = col;
 			}
-		}
-
-	} else if (distance_to_player > active_distance_2) {
-		if (col == vec4(1, 1, 1, 1)) {
-        	COLOR = vec4(66.0 / 255.0, 20.0 / 255.0, 11.0 / 255.0, 1);
-		} else {
-        	COLOR = col;
-		}
-	} else if (distance_to_player > active_distance_3) {
-		if (col == vec4(1, 1, 1, 1)) {
-        	COLOR = vec4(128.0 / 255.0, 71.0 / 255.0, 10.0 / 255.0, 1);
-		} else {
-        	COLOR = col;
-		}
-	} else if (distance_to_player > active_distance_4) {
-		if (col == vec4(1, 1, 1, 1)) {
-        	COLOR = vec4(219.0 / 255.0, 180.0 / 255.0, 39.0 / 255.0, 1);
-		} else {
-        	COLOR = col;
-		}
-	} else if (distance_to_player > active_distance_5) {
-		if (col == vec4(1, 1, 1, 1)) {
-        	COLOR = vec4(1, 1, 1, 1);
-		} else {
-        	COLOR = col;
-		}
-    } else {
-        	COLOR = col;
-    }
+		} else if (distance_to_player > active_distance_3) {
+			if (col == vec4(1, 1, 1, 1)) {
+	        	COLOR = vec4(128.0 / 255.0, 71.0 / 255.0, 10.0 / 255.0, 1);
+			} else {
+	        	COLOR = col;
+			}
+		} else if (distance_to_player > active_distance_4) {
+			if (col == vec4(1, 1, 1, 1)) {
+	        	COLOR = vec4(219.0 / 255.0, 180.0 / 255.0, 39.0 / 255.0, 1);
+			} else {
+	        	COLOR = col;
+			}
+		} else if (distance_to_player > active_distance_5) {
+			if (col == vec4(1, 1, 1, 1)) {
+	        	COLOR = vec4(1, 1, 1, 1);
+			} else {
+	        	COLOR = col;
+			}
+	    } else {
+	        	COLOR = col;
+	    }
+	}
 }"
 
 [sub_resource type="ShaderMaterial" id=2]

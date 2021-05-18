@@ -422,18 +422,21 @@ var motion := Vector2.ZERO
 
 var state_graphs = []
 
+onready var left_ray = $left_ray
+onready var right_ray = $right_ray
+
 onready var state_by_type: Dictionary = {
 	State.Type.Null: Null.new(),
 	
 	State.Type.VerticalMovement_Idle: VerticalMovement.Idle.new(),
-	State.Type.VerticalMovement_Fall: VerticalMovement.Fall.new($left_ray, $right_ray),
+	State.Type.VerticalMovement_Fall: VerticalMovement.Fall.new(left_ray, right_ray),
 	State.Type.VerticalMovement_Jump: VerticalMovement.Jump.new(),
-	State.Type.VerticalMovement_PreLandJump: VerticalMovement.PreLandJump.new($left_ray, $right_ray),
-	State.Type.VerticalMovement_Coyote: VerticalMovement.Coyote.Default.new($left_ray, $right_ray),
+	State.Type.VerticalMovement_PreLandJump: VerticalMovement.PreLandJump.new(left_ray, right_ray),
+	State.Type.VerticalMovement_Coyote: VerticalMovement.Coyote.Default.new(left_ray, right_ray),
 	State.Type.VerticalMovement_HangTime: VerticalMovement.HangTime.new(),
-	State.Type.VerticalMovement_WallSlide: VerticalMovement.WallSlide.new($left_ray, $right_ray),
-	State.Type.VerticalMovement_WallJump: VerticalMovement.WallJump.new($left_ray, $right_ray),
-	State.Type.VerticalMovement_WallCoyote: VerticalMovement.Coyote.Wall.new($left_ray, $right_ray),
+	State.Type.VerticalMovement_WallSlide: VerticalMovement.WallSlide.new(left_ray, right_ray),
+	State.Type.VerticalMovement_WallJump: VerticalMovement.WallJump.new(left_ray, right_ray),
+	State.Type.VerticalMovement_WallCoyote: VerticalMovement.Coyote.Wall.new(left_ray, right_ray),
 	
 	State.Type.HorizontalMovement_Idle: HorizontalMovement.Idle.new(),
 	State.Type.HorizontalMovement_Left: HorizontalMovement.Left.new(),
@@ -443,6 +446,9 @@ onready var state_by_type: Dictionary = {
 func _ready():
 	state_graphs.append(VerticalMovementGraph.new(self))
 	state_graphs.append(HorizontalMovementGraph.new(self))
+
+func _on_body_enter(a):
+	print(a)
 
 class Average:
 	var points: PoolIntArray
@@ -477,12 +483,15 @@ func _physics_process(delta: float):
 		debug = !debug
 	if debug:
 		$Label.show()
-
 		var text = ""
 		text += "FSM update (%sus)\n" % int(frame_times.average())
 		for state_graph in state_graphs:
 			text += "%s\n" % state_graph.label()
-		text += "motion %s" % str(motion)
+		text += "motion %s\n" % str(motion)
+		
+		for child in get_children():
+			if child is RayCast2D:
+				text += "%s %s\n" % [child.name, child.is_colliding()]
 		$Label.set_text(text)
 	else:
 		$Label.hide()
